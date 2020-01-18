@@ -1,0 +1,167 @@
+namespace ca.mcgill.ecse223.resto.model;
+
+use RestoAppPersistence2.ump;
+use RestoAppTableStateMachine2.ump;
+
+class RestoApp {
+   1 <@>- * Reservation reservations; // sorted by date and time
+   1 <@>- * Table tables;
+   0..1 -> 0..1 Table takeOutTable;
+   0..1 -> * Table currentTables; // subsets tables
+   1 <@>- * Order orders;
+   0..1 -> * Order currentOrders; // subsets orders
+   1 <@>- 1 Menu menu;   
+   1 <@>- * PricedMenuItem pricedMenuItems;
+   1 <@>- * Bill bills;
+   1 <@>- * TakeOut;
+}
+
+class TakeOut {
+	Integer phoneNumber;
+	String takeOutName;
+  0..1 -- 1 Order;
+  
+}
+
+class Reservation {
+   Date date;
+   Time time;
+   Integer numberInParty;
+   contactName;
+   contactEmailAddress;
+   contactPhoneNumber;
+   autounique reservationNumber;
+   * reservations -- 1..* Table tables; // only from currentTables
+    public static  Date getEditedDate(Date date, Time time, int offsetHours){
+	    Calendar calendar=Calendar.getInstance();
+	      calendar.setTimeZone(TimeZone.getTimeZone("UTC"));
+	      calendar.setTime(date);
+	      calendar.add(Calendar.MILLISECOND, (int) time.getTime());
+	      calendar.add(Calendar.HOUR, offsetHours);
+	      return (Date) calendar.getTime();
+	  }
+
+
+	  /**
+	   * overlap to check if reservation less than 2 hrs before/after requested date/time
+	   */
+	  // line 39 "../../../../../RestoApp v3.ump"
+	   public boolean doesOverlap(Date date, Time time){
+	    Date reservationDate = this.getDate();
+		  Time reservationTime = this.getTime();
+		 
+		  Date reservationDesired = getEditedDate(date, time, 0);
+		  Date reservationEditedLowerBound  = getEditedDate(reservationDate, reservationTime, -2);
+		  Date reservationEditedHigherBound = getEditedDate(reservationDate, reservationTime, 2);
+
+		  if(reservationDesired.after(reservationEditedLowerBound) && reservationDesired.before(reservationEditedHigherBound)) {
+			  return true;
+		  }
+		   
+		return false;
+	  }
+
+   
+}
+
+class Table {
+   unique Integer number;
+   Integer x;
+   Integer y;
+   Integer width;
+   Integer length;
+   1 <@>- 1..* Seat seats;
+   0..1 -> * Seat currentSeats; // subsets seats
+   public boolean doesOverlap(int aX, int aY, int aWidth, int aLength){
+	    /*If any of these 4 conditions are true, you can say the rectangles are not overlapping:
+	 			aX > x + width (OR)
+			  	aY > y + length (OR)
+			  	x > aX + aWidth (OR)
+			  	y > aY + aLength
+			*/
+		  boolean XOverlap = false;
+		  boolean YOverlap = false;
+		  if(aX<x) {
+			  XOverlap = !((aX+aWidth) < x);
+			  System.out.print(XOverlap);
+			  System.out.println(" go 1");
+		  }
+		  else if(aX > x && aX < x+width) {
+			  XOverlap = true;
+			  System.out.println(" go 2");
+		  }
+		  else if(aX> x+width) {
+			  XOverlap = false;
+			  System.out.println(" go 3");
+		  }
+		  else if(aX==x) {
+			  XOverlap = true;
+			  System.out.println(" go 4");
+		  }
+		  
+		  if(aY<y) {
+			  YOverlap = !((aY+aLength) < y);
+			  System.out.println(" ++ ");
+			  System.out.print(aY+aLength);
+			  System.out.println(" y ");
+			  System.out.print(y);
+			  System.out.print(YOverlap);
+			  System.out.println(" go a");
+		  }
+		  else if(aY > y && aY < y+length) {
+			  YOverlap =true;
+			  System.out.println(" go b");
+		  }
+		  else if(aY> y+length) {
+			  YOverlap = false;
+			  System.out.println(" go c");
+		  }
+		  else if(aY==y) {
+			  YOverlap = true;
+			  System.out.println(" go d");
+		  }
+		 
+			  return XOverlap && YOverlap;
+	  }
+
+
+   
+}
+
+class Seat {
+}
+
+class Order {
+   Date date;
+   Time time;
+   autounique number;
+   * orders -- 1..* Table tables; // only from currentTables for currentOrders
+   1 <@>- * OrderItem orderItems;
+}
+
+class OrderItem {
+   Integer quantity;
+   * orderItems -- 1 PricedMenuItem pricedMenuItem; // only from MenuItem.currentPricedMenuItem for currentOrders
+   * orderItems -- 1..* Seat seats; // only from order.tables.seats
+}
+
+class Menu {   
+   1 <@>- * MenuItem menuItems;
+}
+
+class MenuItem {
+   unique name;
+   enum ItemCategory { Appetizer, Main, Dessert, AlcoholicBeverage, NonAlcoholicBeverage }
+   lazy ItemCategory itemCategory;
+   1 -- 1..* PricedMenuItem pricedMenuItems;
+   0..1 -> 0..1 PricedMenuItem currentPricedMenuItem; // subsets priced menus items
+}
+
+class PricedMenuItem {
+   Double price;
+}
+
+class Bill {
+   * bills -- 1 Order order; // order.bills.issuedForSeats = order.orderItems.seats
+   * bills -- 1..* Seat issuedForSeats; // only from order.orderItems.seats;
+}
